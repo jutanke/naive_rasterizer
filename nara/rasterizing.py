@@ -199,6 +199,9 @@ def rasterizing(
     dist = np.expand_dims(la.norm(normals_per_vertex, axis=1), axis=1)
     normals_per_vertex /= dist
 
+    R = cv2.Rodrigues(cam.rvec)[0]
+    normals_per_vertex = normals_per_vertex @ R
+
     V2d = cam.project_points(V)
     cam_pos = np.expand_dims(cam.pos, axis=0)
     d = la.norm(cam_pos - V, axis=1)
