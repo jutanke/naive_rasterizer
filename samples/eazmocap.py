@@ -5,15 +5,17 @@ sys.path.insert(0, ".")
 # from trimesh.exchange.obj import load_obj
 import trimesh
 import cv2
+import numpy as np
 from nara.camera import Camera
 from nara.vis import Plot
 
-from nara.rasterizing import zbuffer
+from nara.rasterizing import rasterizing
 
 
 extri_fpath = "data/extri.yml"
 intri_fpath = "data/intri.yml"
 mesh_fpath = "data/000000_2.obj"
+uv_fpath = "data/uv_table.npy"
 
 camera = "1"
 
@@ -40,13 +42,22 @@ cam = Camera(rvec, tvec, K, dist, w, h)
 mesh = trimesh.load(mesh_fpath)
 V = mesh.vertices
 F = mesh.faces
+T = np.load(uv_fpath)
 
-zbuf = zbuffer(V, F, cam)
+
+# zbuf = zbuffer(V, F, cam)
 
 # V[:, [0, 1, 2]] = V[:, [0, 2, 1]]
 
+zbuffer, uv_image, normal_image = rasterizing(V, F, T, cam, calculate_normals=True)
 
-plot.ax.matshow(zbuf, alpha=0.4)
+
+print("normal_image", normal_image.shape, np.min(normal_image), np.max(normal_image))
+
+normal_image = (normal_image + 1) / 2
+
+
+plot.ax.imshow(normal_image, alpha=1.0)
 
 # v2d = cam.project_points(V)
 
