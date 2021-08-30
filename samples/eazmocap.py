@@ -8,6 +8,8 @@ import cv2
 from nara.camera import Camera
 from nara.vis import Plot
 
+from nara.rasterizing import zbuffer
+
 
 extri_fpath = "data/extri.yml"
 intri_fpath = "data/intri.yml"
@@ -32,16 +34,22 @@ tvec = extri_param.getNode(f"T_{camera}").mat()  # 3x1 np.array
 plot = Plot(w, h)
 plot.imshow(im)
 
+
 cam = Camera(rvec, tvec, K, dist, w, h)
 
 mesh = trimesh.load(mesh_fpath)
 V = mesh.vertices
+F = mesh.faces
+
+zbuf = zbuffer(V, F, cam)
 
 # V[:, [0, 1, 2]] = V[:, [0, 2, 1]]
 
 
-v2d = cam.project_points(V)
+plot.ax.matshow(zbuf, alpha=0.4)
 
-plot.scatter2d(v2d)
+# v2d = cam.project_points(V)
+
+# plot.scatter2d(v2d)
 
 plot.save("output/eazmopca.png")

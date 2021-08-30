@@ -22,7 +22,7 @@ class Camera:
 
         R = cv2.Rodrigues(self.rvec)[0]
         tvec = self.tvec
-        self.pos = -np.transpose(R) @ tvec
+        self.pos = np.squeeze(-np.transpose(R) @ tvec)
 
     def project_points(self, pts3d):
         """
