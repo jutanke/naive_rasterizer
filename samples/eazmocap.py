@@ -45,10 +45,6 @@ F = mesh.faces
 T = np.load(uv_fpath)
 
 
-# zbuf = zbuffer(V, F, cam)
-
-# V[:, [0, 1, 2]] = V[:, [0, 2, 1]]
-
 zbuffer, uv_image, normal_image = rasterizing(V, F, T, cam, calculate_normals=True)
 
 
@@ -58,9 +54,5 @@ normal_image = (normal_image + 1) / 2
 
 
 plot.ax.imshow(normal_image, alpha=1.0)
-
-# v2d = cam.project_points(V)
-
-# plot.scatter2d(v2d)
 
 plot.save("output/eazmopca.png")
