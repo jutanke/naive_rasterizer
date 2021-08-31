@@ -2,6 +2,7 @@ import numpy as np
 import numba as nb
 import numpy.linalg as la
 import math as m
+import cv2
 
 
 INFINITY = 999999.0
