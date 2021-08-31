@@ -55,4 +55,4 @@ normal_image = (normal_image + 1) / 2
 
 plot.ax.imshow(normal_image, alpha=1.0)
 
-plot.save("output/eazmopca.png")
+plot.save(f"output/eazmopca_{camera}.png")
