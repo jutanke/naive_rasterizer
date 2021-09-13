@@ -11,13 +11,16 @@ from nara.vis import Plot
 
 from nara.rasterizing import rasterizing
 
+camera = "10"
 
-extri_fpath = "data/extri.yml"
-intri_fpath = "data/intri.yml"
-mesh_fpath = "data/000000_2.obj"
+extri_fpath = f"data/easymocap/extri_{camera}.yml"
+intri_fpath = f"data/easymocap/intri_{camera}.yml"
+mesh_fpath = "data/easymocap/000074.obj"
+# extri_fpath = "data/extri.yml"
+# intri_fpath = "data/intri.yml"
+# mesh_fpath = "data/000000_2.obj"
 uv_fpath = "data/uv_table.npy"
 
-camera = "1"
 
 image_fpath = f"data/AllViewImage_000000/{camera}_000000.jpg"
 
@@ -53,6 +56,7 @@ print("normal_image", normal_image.shape, np.min(normal_image), np.max(normal_im
 normal_image = (normal_image + 1) / 2
 
 
-plot.ax.imshow(normal_image, alpha=1.0)
+plot.ax.imshow(im)
+plot.ax.imshow(normal_image, alpha=0.5)
 
 plot.save(f"output/eazmopca_{camera}.png")
