@@ -83,15 +83,16 @@ def native_calculate_normals(V, F):
     normals_scale = 1.0 / faces_hits
 
     # step2: calculate normals per face and scale-add to vertices
+    eps = 0.00000001
     for i in range(n_faces):
         a = F[i, 0]
         b = F[i, 1]
         c = F[i, 2]
 
         ab = V[b] - V[a]
-        ab = ab / la.norm(ab)
+        ab = ab / (la.norm(ab) + eps)
         ac = V[c] - V[a]
-        ac = ac / la.norm(ac)
+        ac = ac / (la.norm(ac) + eps)
         n = np.cross(ab, ac)
 
         na = n * normals_scale[a]
@@ -198,6 +199,7 @@ def rasterizing(
 
     normals_per_vertex = native_calculate_normals(V, F)
     dist = np.expand_dims(la.norm(normals_per_vertex, axis=1), axis=1)
+
     normals_per_vertex /= dist
 
     R = cv2.Rodrigues(cam.rvec)[0]
