@@ -41,11 +41,13 @@ def barycentric_interpolation(
     Yv2 = by
     Yv3 = cy
 
+    eps = 0.00000001
+
     Wv1 = ((Yv2 - Yv3) * (Px - Xv3) + (Xv3 - Xv2) * (Py - Yv3)) / (
-        (Yv2 - Yv3) * (Xv1 - Xv3) + (Xv3 - Xv2) * (Yv1 - Yv3)
+        (Yv2 - Yv3) * (Xv1 - Xv3) + (Xv3 - Xv2) * (Yv1 - Yv3) + eps
     )
     Wv2 = ((Yv3 - Yv1) * (Px - Xv3) + (Xv1 - Xv3) * (Py - Yv3)) / (
-        (Yv2 - Yv3) * (Xv1 - Xv3) + (Xv3 - Xv2) * (Yv1 - Yv3)
+        (Yv2 - Yv3) * (Xv1 - Xv3) + (Xv3 - Xv2) * (Yv1 - Yv3) + eps
     )
     Wv3 = 1 - Wv1 - Wv2
     return Wv1, Wv2, Wv3

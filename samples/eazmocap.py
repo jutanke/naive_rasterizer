@@ -11,9 +11,9 @@ from nara.vis import Plot
 
 from nara.rasterizing import rasterizing
 
-camera = 23
-frame = 74
-person = "387"
+camera = 10
+frame = 250
+person = "377"
 
 # extri_fpath = f"data/easymocap/extri_{camera}.yml"
 # intri_fpath = f"data/easymocap/intri_{camera}.yml"
@@ -70,6 +70,6 @@ normal_image = (normal_image + 1) / 2
 
 
 plot.ax.imshow(im)
-plot.ax.imshow(normal_image, alpha=0.9)
+plot.ax.imshow(normal_image, alpha=0.5)
 
 plot.save(f"output/eazmopca{person}_{camera}.png")
