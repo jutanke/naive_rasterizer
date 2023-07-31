@@ -324,6 +324,7 @@ def native_shading(
                             b_v2l = V2light_vector[l, b]
                             c_v2l = V2light_vector[l, c]
                             v2l = w1 * a_v2l + w2 * b_v2l + w3 * c_v2l
+                            v2l_norm = v2l / la.norm(v2l)
 
                             # calculate reflection
                             n_prime = (n @ v2l) * n
@@ -332,7 +333,7 @@ def native_shading(
 
                             # diffuse reflection
                             I_d = diffuse_reflection_constant * \
-                                max(0, n @ v2l) * light_intensities[l]
+                                max(0, n @ v2l_norm) * light_intensities[l]
 
                             # TODO specular
 
