@@ -4,6 +4,10 @@ import numpy.linalg as la
 import math as m
 import cv2
 
+from nara.light import Light, LightType, Material
+from nara.camera import Camera
+from typing import List
+
 
 INFINITY = 999999.0
 
@@ -54,7 +58,8 @@ def barycentric_interpolation(
 
 
 @nb.njit(
-    nb.boolean(nb.float64, nb.float64, nb.float64, nb.float64, nb.float64, nb.float64),
+    nb.boolean(nb.float64, nb.float64, nb.float64,
+               nb.float64, nb.float64, nb.float64),
     nogil=True,
 )
 def edge_function(ax, ay, bx, by, cx, cy):
@@ -109,7 +114,7 @@ def native_calculate_normals(V, F):
 
 
 @nb.njit(
-    nb.types.Tuple((nb.float64[:, :], nb.float64[:, :, :], nb.float64[:, :, :]))(
+    nb.types.Tuple((nb.float64[:, :], nb.float64[:, :, :], nb.float64[:, :, :]))(  # noqa E501
         nb.float64[:, :],
         nb.int64[:, :],
         nb.float64[:, :],
@@ -212,7 +217,7 @@ def rasterizing(
     d = la.norm(cam_pos - V, axis=1)
 
     zbuffer, uv_image, normal_image = native_rasterizing(
-        V2d, F, T, d, normals_per_vertex, cam.w, cam.h, INFINITY, calculate_normals
+        V2d, F, T, d, normals_per_vertex, cam.w, cam.h, INFINITY, calculate_normals  # noqa E501
     )
     zbuffer[zbuffer > INFINITY - 0.00001] = 0
 
@@ -220,3 +225,188 @@ def rasterizing(
         return zbuffer, uv_image, normal_image
     else:
         return zbuffer, uv_image
+
+
+# = = = = = = =
+# s h a d i n g
+# = = = = = = =
+
+@nb.njit(
+    nb.float64[:, :](
+        nb.float64[:, :],  # V2d
+        nb.int64[:, :],  # F
+        nb.float64[:],  # D
+        nb.float64[:, :],  # N
+        nb.int64,
+        nb.int64,
+        nb.float64,  # infinity
+        nb.float64[:],  # light intensities
+        nb.float64[:, :, :],  # V2light_vector
+        nb.float64,  # specular_reflection_constant
+        nb.float64,  # diffuse_reflection_constant
+        nb.float64,  # ambient_reflection_constant
+        nb.float64,  # shininess
+        nb.float64,  # ambient light
+    )
+)
+def native_shading(
+        V2d,
+        F,
+        D,
+        N,
+        w: int,
+        h: int,
+        INFINITY: float,
+        light_intensities,
+        V2light_vector,
+        specular_reflection_constant: float,
+        diffuse_reflection_constant: float,
+        ambient_reflection_constant: float,
+        shininess: float,
+        ambinent_light: float,
+):
+    zbuffer = np.ones((h, w), dtype=np.float64) * INFINITY
+    shadow_im = np.zeros((h, w), dtype=np.float64)
+
+    n_triangles = len(F)
+
+    n_lights = len(light_intensities)
+
+    for i in range(n_triangles):
+
+        a = F[i, 0]
+        b = F[i, 1]
+        c = F[i, 2]
+
+        ax, ay = V2d[a]
+        bx, by = V2d[b]
+        cx, cy = V2d[c]
+
+        az = D[a]
+        bz = D[b]
+        cz = D[c]
+
+        na = N[a]
+        nb = N[b]
+        nc = N[c]
+
+        bb_left = int(m.floor(max(0.0, min(w - 1, min(ax, min(bx, cx))))))
+        bb_top = int(m.floor(max(0.0, min(h - 1, min(ay, min(by, cy))))))
+
+        bb_right = int(m.ceil(max(0.0, min(w - 1, max(ax, max(bx, cx))))))
+        bb_bottom = int(m.ceil(max(0.0, min(h - 1, max(ay, max(by, cy))))))
+
+        for x in range(bb_left, bb_right):
+            for y in range(bb_top, bb_bottom):
+                px = float(x)
+                py = float(y)
+                if (
+                    edge_function(ax, ay, bx, by, px, py)
+                    and edge_function(bx, by, cx, cy, px, py)
+                    and edge_function(cx, cy, ax, ay, px, py)
+                ):
+                    w1, w2, w3 = barycentric_interpolation(
+                        px, py, ax, ay, bx, by, cx, cy
+                    )
+                    d = w1 * az + w2 * bz + w3 * cz
+                    if d < zbuffer[y, x]:
+                        zbuffer[y, x] = d
+                        n = w1 * na + w2 * nb + w3 * nc
+                        shadow_im[y, x] = 0  # reset shadow image
+
+                        # ambinent light reflection
+                        I_a = ambinent_light * ambient_reflection_constant
+
+                        shadow_im[y, x] += I_a
+
+                        for l in range(n_lights):
+                            a_v2l = V2light_vector[l, a]
+                            b_v2l = V2light_vector[l, b]
+                            c_v2l = V2light_vector[l, c]
+                            v2l = w1 * a_v2l + w2 * b_v2l + w3 * c_v2l
+
+                            # calculate reflection
+                            n_prime = (n @ v2l) * n
+                            u = n_prime - v2l
+                            reflection = v2l + 2 * u
+
+                            # diffuse reflection
+                            I_d = diffuse_reflection_constant * \
+                                max(0, n @ v2l) * light_intensities[l]
+
+                            # TODO specular
+
+                            shadow_im[y, x] += I_d
+
+    return shadow_im
+
+
+def shading(
+    V: np.ndarray,
+    F: np.ndarray,
+    cam: Camera,
+    lights: List[Light],
+    material: Material,
+    *,
+    ambinent_light=1.0
+):
+    """
+    :param V: {n_vertices x 3}
+    :param F: {n_faces x 3}
+    :param cam: {Camera}
+    """
+    global INFINITY
+    normals_per_vertex = native_calculate_normals(V, F)
+    dist = np.expand_dims(la.norm(normals_per_vertex, axis=1), axis=1)
+
+    normals_per_vertex /= dist
+
+    light_intensities = []
+    light_locations = []
+    V2light_vector = []  # n_lights x V x 3
+    for light in lights:
+        if light.light_type != LightType.POINT:
+            raise NotImplementedError("Nope.. not yet")
+        light_intensities.append(light.intensity)
+        light_locations.append(light.location)
+        # V2light_vector.append(V-np.expand_dims(light.location, axis=0))
+        V2light_vector.append(np.expand_dims(light.location, axis=0)-V)
+    light_intensities = np.array(light_intensities, dtype=np.float64)
+    light_locations = np.array(light_locations, dtype=np.float64)
+    V2light_vector = np.array(V2light_vector, dtype=np.float64)
+
+    print("V2light_vector", V2light_vector.shape)
+
+    if len(light_locations.shape) != 2 or light_locations.shape[1] != 3:
+        raise ValueError(
+            f"Weird light location shape: {light_locations.shape}")
+    if len(light_intensities.shape) != 1:
+        raise ValueError(
+            f"Weird light intensities shape: {light_intensities.shape}"
+        )
+    if len(light_intensities) != len(light_locations):
+        raise ValueError(
+            f"Inconsistent lights! {len(light_intensities)} vs {len(light_locations)}")  # noqa E501
+
+    V2d = cam.project_points(V)
+    cam_pos = np.expand_dims(cam.pos, axis=0)
+    d = la.norm(cam_pos - V, axis=1)
+
+    # V2light_distance = V2d -
+
+    return native_shading(
+        V2d=V2d,
+        F=F,
+        D=d,
+        N=normals_per_vertex,
+        w=cam.w,
+        h=cam.h,
+        INFINITY=INFINITY,
+        light_intensities=light_intensities,
+        V2light_vector=V2light_vector,
+        specular_reflection_constant=material.specular_reflection_constant,
+        diffuse_reflection_constant=material.diffuse_reflection_constant,
+        ambient_reflection_constant=material.ambient_reflection_constant,
+        shininess=material.shininess,
+        ambinent_light=ambinent_light
+    )
